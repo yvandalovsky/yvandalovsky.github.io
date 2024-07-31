@@ -1,3 +1,167 @@
+<!doctype html>
+
 <html>
-   Test 
+
+<head>
+   <title>2017 Car Emission Data Analysis</title>
+
+   <style>
+      .tooltip {
+        position: absolute;
+        text-align: center;
+        width: auto;
+        height: auto;
+        padding: 5px;
+        font: 12px sans-serif;
+        background: lightsteelblue;
+        border: 0;
+        border-radius: 8px;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.2s;
+      }
+      .tooltip td {
+         text-align: left;
+      }
+
+      .annotation {
+        position: absolute;
+        text-align: center;
+        width: auto;
+        height: auto;
+        padding: 5px;
+        font: 12px sans-serif;
+        background: grey;
+        border: 1;
+        border-radius: 8px;
+      }
+    </style>
+</head>
+
+<script src="http://d3js.org/d3.v7.min.js"></script>
+
+<script>
+   var ENGINE_TYPES = [ "Gasoline", "Diesel", "Electricity" ];
+   var CURRENT_ENGINE_TYPE = 0;
+
+   function highlightCurrentEngineTypeButton()
+   {
+      for (let i = 0; i < ENGINE_TYPES.length; ++i)
+      {
+         document.getElementById(ENGINE_TYPES[i]).style.border = (i == CURRENT_ENGINE_TYPE ? "2px solid black" : "");
+      }
+   }
+
+   function setCurrentEngineType(engine_type) {
+      for (let i = 0; i < ENGINE_TYPES.length; ++i) {
+         if (ENGINE_TYPES[i] == engine_type) {
+            CURRENT_ENGINE_TYPE = i;
+            break;
+         }
+      }
+      highlightCurrentEngineTypeButton();
+      filterDataByEngineType(engine_type);
+   }
+
+   function nextSlide()
+   {
+      CURRENT_ENGINE_TYPE = (CURRENT_ENGINE_TYPE + 1) % ENGINE_TYPES.length;
+      setCurrentEngineType(ENGINE_TYPES[CURRENT_ENGINE_TYPE]);
+   }
+
+   function filterDataByEngineType(engine_type)
+   {
+      d3.select("svg")
+         .selectAll("circle")
+            .transition()
+               .duration(900)
+                  .style("visibility", function(d) { return d.Fuel === engine_type ? "visible" : "hidden"; });
+   }
+
+   async function loadData()
+   {
+      const DATA_URI = "https://flunky.github.io/cars2017.csv";
+      const width = 800;
+      const height = 800;
+      const margin = 50;
+
+      const data = await d3.csv(DATA_URI);
+
+      const xs = d3.scaleLog().domain([10,150]).range([0,width]);
+      const ys = d3.scaleLog().domain([10,150]).range([height-margin,0]);
+
+      d3.select("svg")
+         .append("g")
+            .attr("transform","translate("+margin+","+margin+")")
+            .selectAll("circle")
+               .data(data)
+               .enter()
+                  .append("circle")
+                     .attr("cx", function(d) { return xs(d.AverageCityMPG); })
+                     .attr("cy", function(d) { return ys(d.AverageHighwayMPG); })
+                     .attr("r",  function(d) { return (3+parseInt(d.EngineCylinders))*1.5; })
+                     .attr("fill", "steelblue")
+                     .attr("stroke", "black")
+                     .attr("stroke-width", 1);
+   
+      d3.select("svg")
+         .append("g")
+            .attr("transform","translate("+margin+","+margin+")")
+            .call(d3.axisLeft(ys).tickValues([10,20,50,100]).tickFormat(d3.format("~s")));
+
+      d3.select("svg")
+         .append("g")
+            .attr("transform","translate("+margin+","+height+")")
+            .call(d3.axisBottom(xs).tickValues([10,20,50,100]).tickFormat(d3.format("~s")));
+
+      const tooltip = d3.select("body").append("div")
+            .attr("class", "tooltip");
+
+      d3.select("svg").selectAll("circle")
+         .on("mouseover", (event, d) => {
+            tooltip.transition()
+            .duration(200)
+            .style("opacity", 0.9);
+          tooltip.html(`<table><tr><td>Make:</td><td>${d.Make}</td></tr><tr><td>Fuel:</td><td>${d.Fuel}</td></tr><tr><td>EngineCylinders:</td><td>${d.EngineCylinders}</td></tr><tr><td>AverageHighwayMPG:</td><td>${d.AverageHighwayMPG}</td></tr><tr><td>AverageCityMPG:</td><td>${d.AverageCityMPG}</td></tr></table>`)
+            .style("left", `${event.pageX}px`)
+            .style("top", `${event.pageY - 28}px`);
+         })
+         .on("mousemove", event => {
+            tooltip.style("left", `${event.pageX}px`)
+            .style("top", `${event.pageY - 28}px`);
+         })
+         .on("mouseout", () => {
+             tooltip.transition()
+             .duration(500)
+            .style("opacity", 0);
+      });
+
+      const annotation = d3.select("body").append("div").attr("class", "annotation");
+
+      const svg_elem_coords = d3.select("svg").node().getBoundingClientRect();
+      
+      annotation
+         .html("<p>Circle sizes are proportional to the number of engine cylinders.</p><p>Hover over circles to see additional detail.</p>")
+         .style("left", `${svg_elem_coords.left + 100}px`)
+         .style("top", `${svg_elem_coords.top + 250}px`);
+
+      setCurrentEngineType(ENGINE_TYPES[0]);
+   }
+
+</script>
+
+<body  onload="loadData()">
+   <h1>2017 Car Emission Data Analysis</h1>
+   <table>
+      <tr>
+         <td>Fuel Type:</td>
+         <td><button id="Gasoline" onclick="setCurrentEngineType(this.id);">Gasoline</button></td>
+         <td><button id="Diesel" onclick="setCurrentEngineType(this.id);">Diesel</button></td>
+         <td><button id="Electricity" onclick="setCurrentEngineType(this.id);">Electricity</button></td>
+         <td><button id="Next" style="font-weight: bold;" onclick="nextSlide();">&gt;&gt;Next</button></td>
+      </tr>
+   </table>
+   <svg width="900px" height="900px"></svg>
+</body>
+
 </html>
